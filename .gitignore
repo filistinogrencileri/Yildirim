@@ -1,0 +1,22 @@
+# local toolchain (portable node + postgres + data)
+.tools/
+
+# deps / builds
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# dev file uploads (local-disk storage driver)
+.uploads/
+
+# misc
+*.log
+coverage/
+.DS_Store

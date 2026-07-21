@@ -1,0 +1,472 @@
+// Yıldırım database schema — implements plan §3.
+// Principles: configurable fields (not columns) for anything service-specific;
+// Json {ar, en?, tr?} for all admin-authored strings; enums for machine states only.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums (machine states only) ────────────────────────────────────────────
+
+enum UserRole {
+  STUDENT
+  SUPERVISOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_ACTION
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum RequestOutcome {
+  ACCEPTED
+  REJECTED
+}
+
+enum FieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  SELECT
+  MULTI_SELECT
+  PHONE
+  EMAIL
+  BOOLEAN
+  FILE_PDF
+  FILE_IMAGE
+}
+
+enum ServiceType {
+  UNIVERSITY_PLACEMENT
+  GENERAL
+}
+
+enum ChoiceMode {
+  SINGLE
+  MULTI
+}
+
+enum FileKind {
+  PROFILE_PHOTO
+  DOCUMENT
+  ACCEPTANCE_LETTER
+  ANNOUNCEMENT_IMAGE
+  EXPORT
+}
+
+// ─── Identity & auth ────────────────────────────────────────────────────────
+
+model User {
+  id                   String     @id @default(uuid()) @db.Uuid
+  email                String     @unique // normalized to lowercase in the service layer
+  phoneE164            String     @map("phone_e164")
+  passwordHash         String     @map("password_hash")
+  fullNameAr           String     @map("full_name_ar")
+  fullNameEn           String     @map("full_name_en")
+  role                 UserRole   @default(STUDENT)
+  status               UserStatus @default(ACTIVE)
+  locale               String     @default("ar")
+  emailVerifiedAt      DateTime?  @map("email_verified_at")
+  profilePhotoFileId   String?    @map("profile_photo_file_id") @db.Uuid
+  referralSourceItemId String?    @map("referral_source_item_id") @db.Uuid
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  profilePhotoFile   StoredFile? @relation("UserProfilePhoto", fields: [profilePhotoFileId], references: [id])
+  referralSourceItem ListItem?   @relation(fields: [referralSourceItemId], references: [id])
+
+  refreshTokens      RefreshToken[]
+  verificationCodes  EmailVerificationCode[]
+  passwordResets     PasswordResetToken[]
+  fieldValues        ProfileFieldValue[]
+  ownedFiles         StoredFile[]            @relation("FileOwner")
+  requests           Request[]
+  serviceAssignments ServiceSupervisor[]     @relation("AssignedSupervisor")
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  familyId  String    @map("family_id") @db.Uuid // rotation lineage for reuse detection
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  userAgent String?   @map("user_agent")
+  ip        String?
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model EmailVerificationCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_codes")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+// ─── Configurable lists (admin-managed dropdowns) ───────────────────────────
+
+model List {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique // e.g. "referral_source", "countries"
+  name      Json // {ar, en?, tr?}
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items            ListItem[]
+  fieldDefinitions FieldDefinition[]
+
+  @@map("lists")
+}
+
+model ListItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  listId    String   @map("list_id") @db.Uuid
+  label     Json // {ar, en?, tr?}
+  value     String // stable machine value
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  list           List   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  referredUsers  User[]
+
+  @@unique([listId, value])
+  @@map("list_items")
+}
+
+
+// ─── Flexible profile engine ────────────────────────────────────────────────
+
+model ProfileSection {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String   @unique // "personal_info", "academic_info", ...
+  title        Json // {ar, en?, tr?}
+  sortOrder    Int      @default(0) @map("sort_order")
+  isRepeatable Boolean  @default(false) @map("is_repeatable") // e.g. work_experience
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  fields FieldDefinition[]
+
+  @@map("profile_sections")
+}
+
+model FieldDefinition {
+  id                   String    @id @default(uuid()) @db.Uuid
+  sectionId            String    @map("section_id") @db.Uuid
+  key                  String
+  label                Json // {ar, en?, tr?}
+  helpText             Json?     @map("help_text")
+  type                 FieldType
+  listId               String?   @map("list_id") @db.Uuid // for SELECT / MULTI_SELECT
+  validation           Json? // {min?, max?, regex?, maxSizeMb?, ...}
+  isRequiredForProfile Boolean   @default(false) @map("is_required_for_profile")
+  sortOrder            Int       @default(0) @map("sort_order")
+  isActive             Boolean   @default(true) @map("is_active")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  section      ProfileSection       @relation(fields: [sectionId], references: [id])
+  list         List?                @relation(fields: [listId], references: [id])
+  values       ProfileFieldValue[]
+  requirements ServiceRequirement[]
+
+  @@unique([sectionId, key])
+  @@map("field_definitions")
+}
+
+model ProfileFieldValue {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  fieldId    String   @map("field_id") @db.Uuid
+  entryIndex Int      @default(0) @map("entry_index") // 0..N for repeatable sections
+  value      Json?
+  fileId     String?  @map("file_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  field FieldDefinition @relation(fields: [fieldId], references: [id])
+  file  StoredFile?     @relation(fields: [fileId], references: [id])
+
+  @@unique([userId, fieldId, entryIndex])
+  @@index([userId])
+  @@map("profile_field_values")
+}
+
+// ─── Files (private object storage; access via signed URLs only) ────────────
+
+model StoredFile {
+  id           String   @id @default(uuid()) @db.Uuid
+  ownerUserId  String   @map("owner_user_id") @db.Uuid
+  kind         FileKind
+  storageKey   String   @unique @map("storage_key") // random, non-guessable
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  sha256       String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  owner              User                @relation("FileOwner", fields: [ownerUserId], references: [id])
+  profilePhotoOf     User[]              @relation("UserProfilePhoto")
+  fieldValues        ProfileFieldValue[]
+  acceptanceLetterOf Request[]           @relation("AcceptanceLetter")
+  serviceCoverOf     Service[]           @relation("ServiceCover")
+  announcementCovers Announcement[]      @relation("AnnouncementCover")
+  universityLogoOf   University[]        @relation("UniversityLogo")
+
+  @@index([ownerUserId])
+  @@map("files")
+}
+
+// ─── Services catalog ───────────────────────────────────────────────────────
+
+model Service {
+  id               String      @id @default(uuid()) @db.Uuid
+  slug             String      @unique
+  title            Json // {ar, en?, tr?}
+  description      Json // {ar, en?, tr?}
+  type             ServiceType @default(GENERAL)
+  choiceMode       ChoiceMode  @default(SINGLE) @map("choice_mode")
+  maxChoices       Int         @default(1) @map("max_choices")
+  isPublished      Boolean     @default(false) @map("is_published")
+  publishedAt      DateTime?   @map("published_at")
+  deadlineAt       DateTime?   @map("deadline_at")
+  coverImageFileId String?     @map("cover_image_file_id") @db.Uuid
+  config           Json?
+  // payments extension point (unused at launch)
+  priceCents       Int?        @map("price_cents")
+  currency         String?
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  coverImageFile StoredFile?          @relation("ServiceCover", fields: [coverImageFileId], references: [id])
+  requirements   ServiceRequirement[]
+  supervisors    ServiceSupervisor[]
+  requests       Request[]
+
+  @@map("services")
+}
+
+model ServiceRequirement {
+  id         String  @id @default(uuid()) @db.Uuid
+  serviceId  String  @map("service_id") @db.Uuid
+  fieldId    String  @map("field_id") @db.Uuid
+  isRequired Boolean @default(true) @map("is_required")
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  service Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  field   FieldDefinition @relation(fields: [fieldId], references: [id])
+
+  @@unique([serviceId, fieldId])
+  @@map("service_requirements")
+}
+
+model ServiceSupervisor {
+  serviceId        String   @map("service_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  assignedByUserId String?  @map("assigned_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user    User    @relation("AssignedSupervisor", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, userId])
+  @@map("service_supervisors")
+}
+
+model University {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        Json // {ar, en?, tr?}
+  city        String?
+  countryCode String?  @map("country_code")
+  logoFileId  String?  @map("logo_file_id") @db.Uuid
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  logoFile StoredFile?     @relation("UniversityLogo", fields: [logoFileId], references: [id])
+  choices  RequestChoice[]
+
+  @@map("universities")
+}
+
+model Major {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      Json // {ar, en?, tr?}
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  choices RequestChoice[]
+
+  @@map("majors")
+}
+
+// ─── Requests (applications) ────────────────────────────────────────────────
+
+model Request {
+  id                     String          @id @default(uuid()) @db.Uuid
+  referenceNo            String          @unique @map("reference_no") // e.g. YLD-2026-000123
+  serviceId              String          @map("service_id") @db.Uuid
+  studentId              String          @map("student_id") @db.Uuid
+  status                 RequestStatus   @default(DRAFT)
+  outcome                RequestOutcome?
+  acceptedChoiceId       String?         @unique @map("accepted_choice_id") @db.Uuid
+  acceptanceLetterFileId String?         @map("acceptance_letter_file_id") @db.Uuid
+  answersSnapshot        Json?           @map("answers_snapshot") // frozen at submission
+  submittedAt            DateTime?       @map("submitted_at")
+  decidedAt              DateTime?       @map("decided_at")
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+
+  service              Service         @relation(fields: [serviceId], references: [id])
+  student              User            @relation(fields: [studentId], references: [id])
+  acceptedChoice       RequestChoice?  @relation("AcceptedChoice", fields: [acceptedChoiceId], references: [id])
+  acceptanceLetterFile StoredFile?     @relation("AcceptanceLetter", fields: [acceptanceLetterFileId], references: [id])
+
+  choices RequestChoice[]        @relation("RequestChoices")
+  history RequestStatusHistory[]
+
+  // NOTE: a partial unique index (service_id, student_id) WHERE status <> 'CANCELLED'
+  // is added in raw SQL in the initial migration — Prisma cannot express it.
+  @@index([serviceId, status])
+  @@index([studentId])
+  @@map("requests")
+}
+
+model RequestChoice {
+  id           String @id @default(uuid()) @db.Uuid
+  requestId    String @map("request_id") @db.Uuid
+  rank         Int // 1..N (SINGLE mode = one row at rank 1)
+  universityId String @map("university_id") @db.Uuid
+  majorId      String @map("major_id") @db.Uuid
+
+  request     Request    @relation("RequestChoices", fields: [requestId], references: [id], onDelete: Cascade)
+  university  University @relation(fields: [universityId], references: [id])
+  major       Major      @relation(fields: [majorId], references: [id])
+  acceptedFor Request?   @relation("AcceptedChoice")
+
+  @@unique([requestId, rank])
+  @@map("request_choices")
+}
+
+model RequestStatusHistory {
+  id              String         @id @default(uuid()) @db.Uuid
+  requestId       String         @map("request_id") @db.Uuid
+  fromStatus      RequestStatus? @map("from_status")
+  toStatus        RequestStatus  @map("to_status")
+  changedByUserId String?        @map("changed_by_user_id") @db.Uuid
+  note            String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("request_status_history")
+}
+
+// ─── Content, notifications, audit ──────────────────────────────────────────
+
+model Announcement {
+  id               String    @id @default(uuid()) @db.Uuid
+  slug             String    @unique
+  title            Json // {ar, en?, tr?}
+  body             Json // rich text
+  coverImageFileId String?   @map("cover_image_file_id") @db.Uuid
+  isPublished      Boolean   @default(false) @map("is_published")
+  publishedAt      DateTime? @map("published_at")
+  authorId         String?   @map("author_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  coverImageFile StoredFile? @relation("AnnouncementCover", fields: [coverImageFileId], references: [id])
+
+  @@map("announcements")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  type      String // machine key, e.g. "request.status_changed"
+  title     Json // {ar, en?, tr?}
+  body      Json?
+  data      Json? // deep-link payload
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String // e.g. "request.transition", "export.batch"
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@map("audit_logs")
+}

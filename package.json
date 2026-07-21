@@ -1,0 +1,20 @@
+{
+  "name": "yildirim",
+  "private": true,
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "db:start": "powershell -ExecutionPolicy Bypass -File scripts/db.ps1 start",
+    "db:stop": "powershell -ExecutionPolicy Bypass -File scripts/db.ps1 stop"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.0",
+    "turbo": "^2.5.0"
+  }
+}

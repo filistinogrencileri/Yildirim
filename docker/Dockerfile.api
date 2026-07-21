@@ -1,0 +1,21 @@
+# NestJS API image. UNTESTED locally (no Docker on the dev machine) —
+# validate on the VPS during first deploy.
+FROM node:22-alpine AS build
+RUN corepack enable
+WORKDIR /app
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages ./packages
+COPY apps/api ./apps/api
+RUN pnpm install --frozen-lockfile --filter @yildirim/api... --filter @yildirim/shared...
+RUN pnpm --filter @yildirim/shared build \
+  && pnpm --filter @yildirim/api exec prisma generate \
+  && pnpm --filter @yildirim/api build
+
+FROM node:22-alpine
+RUN corepack enable
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build /app ./
+EXPOSE 4000
+# Run pending migrations, then start the API.
+CMD ["sh", "-c", "pnpm --filter @yildirim/api exec prisma migrate deploy && node apps/api/dist/main.js"]

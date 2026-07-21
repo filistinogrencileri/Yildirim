@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": [
+        "/c",
+        "set PATH=D:\\Yildirim\\.tools\\node;%PATH%&& pnpm --filter @yildirim/web dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

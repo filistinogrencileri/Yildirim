@@ -1,0 +1,21 @@
+# Dev services for machines that have Docker (the current dev machine uses the
+# portable toolchain in .tools/ instead — see README).
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: yildirim
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025" # web UI
+      - "1025:1025" # SMTP
+
+volumes:
+  pgdata_dev:

@@ -1,0 +1,6 @@
+{
+  "name": "@yildirim/config",
+  "version": "0.0.0",
+  "private": true,
+  "files": ["tsconfig"]
+}

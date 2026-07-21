@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+
+/* Yıldırım design tokens — LIGHT theme (owner-requested pivot from the dark
+   direction, 2026-07-20). Warm ivory surfaces, logo-navy text, saffron energy. */
+@theme {
+  /* text / brand navy (from the logo mark) */
+  --color-ink-950: #0b1026;
+  --color-ink-900: #1f2a5c;
+  --color-ink-700: #35406f;
+  --color-ink-500: #5c6488;
+  --color-ink-300: #a8adc4;
+  --color-ink-100: #e7e6f0;
+
+  /* light surfaces */
+  --color-bone-50: #fdfcf8;
+  --color-bone-100: #faf6ee;
+  --color-bone-200: #f0e9dc;
+  --color-bone-300: #e2d9c8;
+
+  /* saffron — the lightning accent */
+  --color-saffron-50: #fff6e3;
+  --color-saffron-100: #ffeac2;
+  --color-saffron-300: #ffd97a;
+  --color-saffron-400: #ffc94d;
+  --color-saffron-500: #f5a623;
+  --color-saffron-600: #d98c0f;
+  --color-saffron-700: #b0700a;
+
+  /* turquoise — success / calm accents */
+  --color-turquoise-50: #e9f7f6;
+  --color-turquoise-300: #7fd6d0;
+  --color-turquoise-500: #2aa7a0;
+  --color-turquoise-600: #1f8781;
+  --color-turquoise-700: #1b7b75;
+
+  /* error */
+  --color-error-50: #fdecec;
+  --color-error-300: #f2a4a7;
+  --color-error-500: #e5484d;
+  --color-error-700: #b93338;
+
+  /* brand lockup text — sampled from the designer logo (2.png) */
+  --color-brand-navy: #1b3457;
+  --color-brand-gold: #ba8528;
+
+  --font-heading: var(--font-alexandria), sans-serif;
+  --font-body: var(--font-plex-arabic), sans-serif;
+}
+
+html {
+  font-family: var(--font-body);
+}
+
+body {
+  background-color: var(--color-bone-50);
+  color: var(--color-ink-900);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+}
