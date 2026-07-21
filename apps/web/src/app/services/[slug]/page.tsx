@@ -10,6 +10,7 @@ import { useApply, useEligibility, useService, type ServiceDetail } from '@/lib/
 import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/ui/field';
 import { StatusChip } from '@/components/requests/status-chip';
+import { PublicShell } from '@/components/public/public-shell';
 
 interface ChoiceRow {
   universityId: string;
@@ -140,21 +141,25 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
 
   if (isLoading || authLoading) {
     return (
-      <main className="grid min-h-screen place-items-center">
-        <span className="size-8 animate-spin rounded-full border-2 border-saffron-500 border-t-transparent" />
-      </main>
+      <PublicShell>
+        <div className="grid min-h-[60vh] place-items-center">
+          <span className="size-8 animate-spin rounded-full border-2 border-saffron-500 border-t-transparent" />
+        </div>
+      </PublicShell>
     );
   }
   if (!service) {
     return (
-      <main className="grid min-h-screen place-items-center px-4 text-center">
-        <div>
-          <p className="text-lg text-ink-500">هذه الخدمة غير متاحة.</p>
-          <Link href="/" className="mt-4 inline-block text-saffron-600 hover:text-saffron-700">
-            العودة للرئيسية
-          </Link>
+      <PublicShell>
+        <div className="grid min-h-[60vh] place-items-center px-4 text-center">
+          <div>
+            <p className="text-lg text-ink-500">هذه الخدمة غير متاحة.</p>
+            <Link href="/" className="mt-4 inline-block text-saffron-600 hover:text-saffron-700">
+              العودة للرئيسية
+            </Link>
+          </div>
         </div>
-      </main>
+      </PublicShell>
     );
   }
 
@@ -169,6 +174,7 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
   };
 
   return (
+    <PublicShell>
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-8">
       <Link
         href={isStudent ? '/dashboard' : '/'}
@@ -324,5 +330,6 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
         )}
       </div>
     </main>
+    </PublicShell>
   );
 }

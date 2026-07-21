@@ -15,6 +15,7 @@ import { MetaModule } from './modules/meta/meta.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { RequestsModule } from './modules/requests/requests.module';
+import { SiteModule } from './modules/site/site.module';
 import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { StorageModule } from './modules/storage/storage.module';
     NotificationsModule,
     ExportsModule,
     AdminModule,
+    SiteModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

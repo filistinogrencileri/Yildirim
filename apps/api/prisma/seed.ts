@@ -8,7 +8,15 @@ import { dirname, resolve } from 'path';
 import { FieldType, Prisma, PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import sharp from 'sharp';
-import { APP_SETTING_KEYS, LIST_KEYS, SECTION_KEYS } from '@yildirim/shared';
+import {
+  APP_SETTING_KEYS,
+  DEFAULT_SITE_SETTINGS,
+  LEGAL_KEY,
+  LIST_KEYS,
+  SECTION_KEYS,
+  SITE_SETTINGS_KEY,
+  type SiteSettings,
+} from '@yildirim/shared';
 
 const prisma = new PrismaClient();
 
@@ -397,6 +405,54 @@ async function main() {
       },
     });
     console.log(`Demo student seeded with request ${request.referenceNo}`);
+  }
+
+  // ── default site settings + legal placeholders (only if unset) ──
+  const existingSite = await prisma.appSetting.findUnique({ where: { key: SITE_SETTINGS_KEY } });
+  if (!existingSite) {
+    const site: SiteSettings = {
+      ...DEFAULT_SITE_SETTINGS,
+      contact: {
+        phone: '+90 501 000 0000',
+        email: 'info@yildirim.com.tr',
+        whatsapp: '+90 501 000 0000',
+        address: 'إسطنبول، تركيا',
+      },
+      social: {
+        facebook: 'https://facebook.com/',
+        instagram: 'https://instagram.com/',
+        tiktok: '',
+        youtube: 'https://youtube.com/',
+        twitter: '',
+        telegram: 'https://t.me/',
+      },
+      newsletterEnabled: true,
+      copyright: {
+        text: 'جميع الحقوق محفوظة © يلدريم للخدمات التعليمية',
+        url: '',
+      },
+    };
+    await prisma.appSetting.create({ data: { key: SITE_SETTINGS_KEY, value: site as object } });
+    await prisma.appSetting.create({
+      data: {
+        key: LEGAL_KEY.privacy,
+        value: {
+          title: 'سياسة الخصوصية',
+          body: 'نحن في يلدريم نحترم خصوصيتك ونلتزم بحماية بياناتك الشخصية. تُستخدم بياناتك ومستنداتك حصراً لغرض معالجة طلباتك التعليمية ولا تُشارك مع أي جهة خارجية دون موافقتك.',
+          pdfFileId: null,
+        },
+      },
+    });
+    await prisma.appSetting.create({
+      data: {
+        key: LEGAL_KEY.terms,
+        value: {
+          title: 'الشروط والأحكام',
+          body: 'باستخدامك لمنصة يلدريم فإنك توافق على تقديم بيانات صحيحة، والالتزام بمتطلبات كل خدمة. تحتفظ المنصة بحق مراجعة الطلبات والمستندات المرفوعة قبل اعتمادها.',
+          pdfFileId: null,
+        },
+      },
+    });
   }
 
   console.log('Seed completed.');

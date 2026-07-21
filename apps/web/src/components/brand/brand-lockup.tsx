@@ -3,9 +3,9 @@ import Link from 'next/link';
 type Size = 'sm' | 'md' | 'lg';
 
 const SIZES: Record<Size, { icon: string; tr: string; ar: string; gap: string }> = {
-  sm: { icon: 'size-9', tr: 'text-[11px]', ar: 'text-[11px]', gap: 'gap-2' },
-  md: { icon: 'size-11', tr: 'text-[13px] sm:text-[15px]', ar: 'text-[12px] sm:text-[13px]', gap: 'gap-2.5' },
-  lg: { icon: 'size-16', tr: 'text-lg sm:text-xl', ar: 'text-base sm:text-lg', gap: 'gap-4' },
+  sm: { icon: 'size-9', tr: 'text-[11px]', ar: 'text-[12px]', gap: 'gap-2' },
+  md: { icon: 'size-11', tr: 'text-[13px] sm:text-[15px]', ar: 'text-[13px] sm:text-[15px]', gap: 'gap-2.5' },
+  lg: { icon: 'size-16', tr: 'text-lg sm:text-xl', ar: 'text-lg sm:text-xl', gap: 'gap-4' },
 };
 
 /**
@@ -38,7 +38,7 @@ export function BrandLockup({
           YILDIRIM EĞİTİM HİZMETLERİ
         </span>
         <span className={`font-heading font-bold text-brand-gold ${s.ar}`}>
-          يلدريم للخدمات التعليمية
+          يلـدريـم للخدمـات التعليميـة
         </span>
       </span>
     </>

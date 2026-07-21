@@ -68,6 +68,7 @@ enum FileKind {
   DOCUMENT
   ACCEPTANCE_LETTER
   ANNOUNCEMENT_IMAGE
+  LEGAL_DOCUMENT
   EXPORT
 }
 
@@ -157,6 +158,14 @@ model AppSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
+}
+
+model NewsletterSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("newsletter_subscriptions")
 }
 
 // ─── Configurable lists (admin-managed dropdowns) ───────────────────────────

@@ -44,6 +44,7 @@ export const FILE_KINDS = [
   'DOCUMENT',
   'ACCEPTANCE_LETTER',
   'ANNOUNCEMENT_IMAGE',
+  'LEGAL_DOCUMENT',
   'EXPORT',
 ] as const;
 export type FileKind = (typeof FILE_KINDS)[number];

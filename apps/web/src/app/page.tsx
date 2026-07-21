@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { BrandLockup } from '@/components/brand/brand-lockup';
-import { AdminAddServiceCard } from '@/components/home/admin-add-service';
+import { PublicHeader } from '@/components/public/public-header';
+import { SiteFooter } from '@/components/public/site-footer';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
@@ -28,28 +28,10 @@ export default async function HomePage() {
   const services = await getServices();
 
   return (
-    <div className="min-h-screen">
-      {/* public header */}
-      <header className="sticky top-0 z-20 border-b border-bone-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <BrandLockup size="md" />
-          <nav className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="rounded-xl px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-ink-900/5"
-            >
-              تسجيل الدخول
-            </Link>
-            <Link
-              href="/register"
-              className="rounded-xl bg-gradient-to-l from-saffron-500 to-saffron-400 px-5 py-2 text-sm font-semibold text-ink-950 shadow-[0_8px_20px_-8px_rgba(217,140,15,0.5)] transition-shadow hover:shadow-[0_10px_28px_-8px_rgba(217,140,15,0.6)]"
-            >
-              أنشئ حسابك
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col">
+      <PublicHeader />
 
+      <div className="flex-1">
       {/* hero */}
       <section className="relative overflow-hidden">
         <div
@@ -96,15 +78,11 @@ export default async function HomePage() {
         </div>
 
         {services.length === 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <p className="rounded-2xl border border-bone-200 bg-white p-10 text-center text-ink-500 sm:col-span-2">
-              لا توجد خدمات متاحة حاليًا — تابعنا قريبًا.
-            </p>
-            <AdminAddServiceCard />
-          </div>
+          <p className="rounded-2xl border border-bone-200 bg-white p-10 text-center text-ink-500">
+            لا توجد خدمات متاحة حاليًا — تابعنا قريبًا.
+          </p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <AdminAddServiceCard />
             {services.map((s) => (
               <Link
                 key={s.slug}
@@ -133,13 +111,9 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+      </div>
 
-      <footer className="border-t border-bone-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8">
-          <BrandLockup size="sm" />
-          <p className="text-xs text-ink-300">© {new Date().getFullYear()} يلدريم للخدمات التعليمية</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
