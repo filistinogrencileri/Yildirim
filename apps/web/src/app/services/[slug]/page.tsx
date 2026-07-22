@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CheckCircle, Plus, Trash, WarningCircle } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, LockSimple, Plus, Trash, WarningCircle } from '@phosphor-icons/react';
 import { localize } from '@yildirim/shared';
 import { useAuth } from '@/lib/auth';
 import { useApply, useEligibility, useService, type ServiceDetail } from '@/lib/catalog';
@@ -120,7 +120,7 @@ function ChoicePicker({
         loading={submitting}
         onClick={() => onSubmit(rows)}
       >
-        تقديم الطلب
+        قدّم الآن
       </Button>
       <p className="mt-2 text-xs text-ink-300">
         عند التقديم تُؤخذ نسخة من بياناتك الحالية وترسل للمراجعة — تأكد من اكتمال ملفك أولًا.
@@ -283,31 +283,38 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
           </div>
         ) : eligibility && !eligibility.eligible ? (
           <div>
-            <h3 className="font-heading text-lg font-semibold text-ink-900">أكمل ملفك أولًا</h3>
-            <p className="mt-1 text-sm text-ink-500">
-              تنقصك الحقول التالية قبل التقديم على هذه الخدمة:
-            </p>
-            <ul className="mt-4 space-y-2">
-              {eligibility.photoMissing && (
-                <li className="flex items-center gap-2 text-sm text-ink-900">
-                  <WarningCircle size={17} className="text-saffron-600" />
-                  الصورة الشخصية
-                </li>
-              )}
-              {eligibility.missing.map((m) => (
-                <li key={m.fieldId} className="flex items-center gap-2 text-sm text-ink-900">
-                  <WarningCircle size={17} className="text-saffron-600" />
-                  {localize(m.label)}
-                  <span className="text-xs text-ink-300">({localize(m.sectionTitle)})</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/profile"
-              className="mt-6 inline-block rounded-xl bg-gradient-to-l from-saffron-500 to-saffron-400 px-6 py-3 font-semibold text-ink-950 shadow-[0_8px_20px_-8px_rgba(217,140,15,0.5)]"
-            >
-              أكمل ملفك الآن
-            </Link>
+            {/* locked apply CTA — the goal is visible, but gated until the profile is complete */}
+            <div className="flex items-center gap-3">
+              <span className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl bg-bone-200 px-6 py-3 font-semibold text-ink-400">
+                <LockSimple size={18} weight="fill" />
+                قدّم الآن
+              </span>
+              <span className="text-sm text-ink-500">التقديم مقفل حتى تُكمل ملفك</span>
+            </div>
+            <div className="mt-5 rounded-xl border border-saffron-300 bg-saffron-50 p-5">
+              <p className="text-sm font-medium text-saffron-800">تنقصك البيانات التالية:</p>
+              <ul className="mt-3 space-y-2">
+                {eligibility.photoMissing && (
+                  <li className="flex items-center gap-2 text-sm text-ink-900">
+                    <WarningCircle size={17} className="text-saffron-600" />
+                    الصورة الشخصية
+                  </li>
+                )}
+                {eligibility.missing.map((m) => (
+                  <li key={m.fieldId} className="flex items-center gap-2 text-sm text-ink-900">
+                    <WarningCircle size={17} className="text-saffron-600" />
+                    {localize(m.label)}
+                    <span className="text-xs text-ink-300">({localize(m.sectionTitle)})</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/profile"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-l from-saffron-500 to-saffron-400 px-6 py-3 font-semibold text-ink-950 shadow-[0_8px_20px_-8px_rgba(217,140,15,0.5)]"
+              >
+                أكمل ملفك الآن
+              </Link>
+            </div>
           </div>
         ) : service.type === 'UNIVERSITY_PLACEMENT' ? (
           <ChoicePicker
@@ -324,7 +331,7 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
               </p>
             )}
             <Button loading={apply.isPending} onClick={() => void onSubmit([])}>
-              تقديم الطلب
+              قدّم الآن
             </Button>
           </div>
         )}

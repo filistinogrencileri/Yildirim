@@ -70,6 +70,21 @@ export function useService(slug: string) {
   });
 }
 
+export interface MyService extends ServiceSummary {
+  eligible: boolean;
+  photoMissing: boolean;
+  missing: Array<{ fieldId: string; label: LocalizedText; sectionKey: string; sectionTitle: LocalizedText }>;
+  existingRequest: { id: string; status: RequestStatus; referenceNo: string } | null;
+}
+
+export function useMyServices(enabled = true) {
+  return useQuery({
+    queryKey: ['catalog', 'my-services'],
+    queryFn: () => api<MyService[]>('/catalog/my-services'),
+    enabled,
+  });
+}
+
 export function useEligibility(slug: string, enabled: boolean) {
   return useQuery({
     queryKey: ['catalog', 'eligibility', slug],

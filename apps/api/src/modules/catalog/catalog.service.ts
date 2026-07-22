@@ -66,6 +66,65 @@ export class CatalogService {
     };
   }
 
+  /**
+   * All published services with the current student's eligibility computed in
+   * one pass — powers the student services grid (faded/locked cards).
+   */
+  async myServices(userId: string) {
+    const [services, user, values, activeRequests] = await Promise.all([
+      this.prisma.service.findMany({
+        where: { isPublished: true },
+        orderBy: { publishedAt: 'desc' },
+        include: {
+          requirements: {
+            where: { isRequired: true },
+            include: { field: { include: { section: { select: { key: true, title: true } } } } },
+          },
+        },
+      }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      this.prisma.profileFieldValue.findMany({ where: { userId, entryIndex: 0 } }),
+      this.prisma.request.findMany({
+        where: { studentId: userId, status: { not: 'CANCELLED' } },
+        select: { id: true, serviceId: true, status: true, referenceNo: true },
+      }),
+    ]);
+
+    const filled = new Set(
+      values.filter((v) => v.value !== null || v.fileId !== null).map((v) => v.fieldId),
+    );
+    const photoMissing = user.profilePhotoFileId === null;
+    const requestByService = new Map(activeRequests.map((r) => [r.serviceId, r]));
+
+    return services.map((service) => {
+      const missing = service.requirements
+        .filter((r) => !filled.has(r.fieldId))
+        .map((r) => ({
+          fieldId: r.fieldId,
+          label: r.field.label,
+          sectionKey: r.field.section.key,
+          sectionTitle: r.field.section.title,
+        }));
+      const existing = requestByService.get(service.id) ?? null;
+      return {
+        id: service.id,
+        slug: service.slug,
+        title: service.title,
+        description: service.description,
+        type: service.type,
+        choiceMode: service.choiceMode,
+        maxChoices: service.maxChoices,
+        deadlineAt: service.deadlineAt,
+        eligible: missing.length === 0 && !photoMissing,
+        photoMissing,
+        missing,
+        existingRequest: existing
+          ? { id: existing.id, status: existing.status, referenceNo: existing.referenceNo }
+          : null,
+      };
+    });
+  }
+
   /** Which of the service's required fields the student still hasn't filled. */
   async eligibility(slug: string, userId: string) {
     const service = await this.prisma.service.findUnique({

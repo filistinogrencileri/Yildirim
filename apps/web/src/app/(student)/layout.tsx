@@ -10,6 +10,7 @@ import { BrandLockup } from '@/components/brand/brand-lockup';
 
 const NAV = [
   { href: '/dashboard', label: 'الرئيسية' },
+  { href: '/services', label: 'الخدمات' },
   { href: '/profile', label: 'ملفي' },
   { href: '/requests', label: 'طلباتي' },
 ] as const;

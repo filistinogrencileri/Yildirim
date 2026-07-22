@@ -12,6 +12,13 @@ export class CatalogController {
     return this.catalog.listPublished();
   }
 
+  /** Published services + the current student's eligibility for each. */
+  @Get('my-services')
+  @UseGuards(JwtAuthGuard)
+  myServices(@CurrentUser() user: AuthUser) {
+    return this.catalog.myServices(user.id);
+  }
+
   @Get('services/:slug')
   detail(@Param('slug') slug: string) {
     return this.catalog.getBySlug(slug);
