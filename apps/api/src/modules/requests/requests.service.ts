@@ -14,6 +14,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { FilesService, type UploadedBuffer } from '../files/files.service';
 import { CatalogService } from '../catalog/catalog.service';
+import { validateFieldValue } from '../profile/value-validator';
 
 export interface ChoiceInput {
   universityId: string;
@@ -21,7 +22,7 @@ export interface ChoiceInput {
 }
 
 const requestInclude = {
-  service: { select: { id: true, slug: true, title: true, type: true, choiceMode: true } },
+  service: { select: { id: true, slug: true, title: true, type: true, choiceMode: true, config: true } },
   choices: {
     orderBy: { rank: 'asc' },
     include: {
@@ -43,8 +44,21 @@ export class RequestsService {
   // ── student side ──────────────────────────────────────────────────────────
 
   /** Creates the request and submits it in one step (freezing the snapshot). */
-  async apply(userId: string, serviceSlug: string, choices: ChoiceInput[]) {
-    const service = await this.prisma.service.findUnique({ where: { slug: serviceSlug } });
+  async apply(
+    userId: string,
+    serviceSlug: string,
+    choices: ChoiceInput[],
+    extraAnswers: Record<string, unknown> = {},
+  ) {
+    const service = await this.prisma.service.findUnique({
+      where: { slug: serviceSlug },
+      include: {
+        extraFields: {
+          orderBy: { sortOrder: 'asc' },
+          include: { list: { include: { items: true } } },
+        },
+      },
+    });
     if (!service || !service.isPublished) throw new NotFoundException('SERVICE_NOT_FOUND');
     if (service.deadlineAt && service.deadlineAt < new Date()) {
       throw new BadRequestException('DEADLINE_PASSED');
@@ -73,7 +87,32 @@ export class RequestsService {
       throw new BadRequestException('CHOICES_NOT_ALLOWED');
     }
 
+    // service-scoped one-time questions: validate against the service's own
+    // extra-field definitions (same per-type rules as profile fields)
+    const validatedExtras: Array<{
+      key: string;
+      label: unknown;
+      type: string;
+      value: unknown;
+      display?: unknown;
+    }> = [];
+    for (const field of service.extraFields) {
+      const value = validateFieldValue(field, extraAnswers[field.key]);
+      if (field.isRequired && value === null) {
+        throw new BadRequestException(`EXTRA_FIELD_REQUIRED:${field.key}`);
+      }
+      // freeze the human-readable option label alongside the raw SELECT value
+      const display =
+        field.type === 'SELECT' && value
+          ? (field.list?.items.find((i) => i.value === value)?.label ?? value)
+          : undefined;
+      validatedExtras.push({ key: field.key, label: field.label, type: field.type, value, display });
+    }
+
     const snapshot = await this.buildSnapshot(userId, service.id);
+    if (validatedExtras.length > 0) {
+      (snapshot as Record<string, unknown>).extraAnswers = validatedExtras;
+    }
 
     const request = await this.prisma.$transaction(async (tx) => {
       const referenceNo = await this.nextReference(tx);
@@ -181,12 +220,15 @@ export class RequestsService {
     r: Prisma.RequestGetPayload<{ include: typeof requestInclude }>,
     userId: string,
   ) {
+    const snapshot = r.answersSnapshot as { extraAnswers?: unknown[] } | null;
     return {
       id: r.id,
       referenceNo: r.referenceNo,
       service: r.service,
+      outcomeKind: (r.service.config as { outcomeKind?: string } | null)?.outcomeKind ?? null,
       status: r.status,
       outcome: r.outcome,
+      outcomeData: r.outcomeData,
       submittedAt: r.submittedAt,
       decidedAt: r.decidedAt,
       choices: r.choices,
@@ -194,6 +236,7 @@ export class RequestsService {
       acceptanceLetterUrl: r.acceptanceLetterFileId
         ? this.files.signUrl(r.acceptanceLetterFileId, userId)
         : null,
+      extraAnswers: snapshot?.extraAnswers ?? [],
       history: r.history.map((h) => ({
         toStatus: h.toStatus,
         note: h.note,
@@ -211,6 +254,11 @@ export class RequestsService {
       throw new BadRequestException('INVALID_TRANSITION');
     }
     const snapshot = await this.buildSnapshot(userId, request.serviceId);
+    // preserve the one-time service answers frozen at the original apply
+    const previous = request.answersSnapshot as { extraAnswers?: unknown[] } | null;
+    if (previous?.extraAnswers) {
+      (snapshot as Record<string, unknown>).extraAnswers = previous.extraAnswers;
+    }
     await this.prisma.$transaction([
       this.prisma.request.update({
         where: { id },
@@ -294,6 +342,7 @@ export class RequestsService {
 
     const snapshot = request.answersSnapshot as {
       answers?: Array<{ fileId?: string | null }>;
+      extraAnswers?: unknown[];
     } | null;
     // sign document URLs inside the snapshot for the reviewer
     const answers = (snapshot?.answers ?? []).map((a) => ({
@@ -305,8 +354,11 @@ export class RequestsService {
       id: request.id,
       referenceNo: request.referenceNo,
       service: request.service,
+      outcomeKind: (request.service.config as { outcomeKind?: string } | null)?.outcomeKind ?? null,
       status: request.status,
       outcome: request.outcome,
+      outcomeData: request.outcomeData,
+      extraAnswers: snapshot?.extraAnswers ?? [],
       submittedAt: request.submittedAt,
       decidedAt: request.decidedAt,
       student: {
@@ -334,6 +386,7 @@ export class RequestsService {
       note?: string;
       outcome?: RequestOutcome;
       acceptedChoiceId?: string;
+      outcomeData?: { office: string; appointmentAt: string; note?: string };
     },
   ) {
     const request = await this.prisma.request.findUnique({
@@ -355,6 +408,8 @@ export class RequestsService {
 
     const data: Prisma.RequestUpdateInput = { status: input.to };
 
+    const outcomeKind = (request.service.config as { outcomeKind?: string } | null)?.outcomeKind;
+
     if (input.to === 'COMPLETED') {
       if (request.service.type === 'UNIVERSITY_PLACEMENT') {
         if (!input.outcome) throw new BadRequestException('OUTCOME_REQUIRED');
@@ -367,6 +422,23 @@ export class RequestsService {
             throw new BadRequestException('ACCEPTANCE_LETTER_REQUIRED');
           }
           data.acceptedChoice = { connect: { id: input.acceptedChoiceId } };
+        }
+        data.outcome = input.outcome;
+      } else if (outcomeKind === 'APPOINTMENT') {
+        // appointment-booking services: an accepted completion must carry the
+        // confirmed appointment (office + datetime), mirroring the placement
+        // letter invariant
+        if (!input.outcome) throw new BadRequestException('OUTCOME_REQUIRED');
+        if (input.outcome === 'ACCEPTED') {
+          const od = input.outcomeData;
+          if (!od?.office?.trim() || !od?.appointmentAt || isNaN(Date.parse(od.appointmentAt))) {
+            throw new BadRequestException('APPOINTMENT_DETAILS_REQUIRED');
+          }
+          data.outcomeData = {
+            office: od.office.trim(),
+            appointmentAt: od.appointmentAt,
+            ...(od.note?.trim() ? { note: od.note.trim() } : {}),
+          } as Prisma.InputJsonValue;
         }
         data.outcome = input.outcome;
       } else {

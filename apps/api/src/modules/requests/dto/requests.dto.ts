@@ -1,8 +1,11 @@
 import { Type } from 'class-transformer';
 import {
+  Allow,
   ArrayMaxSize,
   IsArray,
   IsIn,
+  IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -28,6 +31,27 @@ export class ApplyDto {
   @ValidateNested({ each: true })
   @Type(() => ChoiceDto)
   choices!: ChoiceDto[];
+
+  // service-scoped one-time answers, validated per-field in RequestsService
+  @IsOptional()
+  @Allow()
+  extraAnswers?: Record<string, unknown>;
+}
+
+export class OutcomeDataDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  office!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  appointmentAt!: string; // ISO datetime, checked in the service layer too
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }
 
 export class TransitionDto {
@@ -46,4 +70,10 @@ export class TransitionDto {
   @IsOptional()
   @IsUUID()
   acceptedChoiceId?: string;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => OutcomeDataDto)
+  outcomeData?: OutcomeDataDto;
 }

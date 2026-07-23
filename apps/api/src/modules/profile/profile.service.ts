@@ -230,7 +230,7 @@ export class ProfileService {
     const stored =
       field.type === 'FILE_PDF'
         ? await this.files.storePdf(userId, file, { kind: 'DOCUMENT', maxSizeMb: rules.maxSizeMb })
-        : await this.files.storeProfilePhoto(userId, file); // FILE_IMAGE fields reuse the image pipeline
+        : await this.files.storeProfilePhoto(userId, file, { whiteBackground: false }); // generic image fields skip the biometric check
 
     await this.prisma.profileFieldValue.upsert({
       where: { userId_fieldId_entryIndex: { userId, fieldId, entryIndex } },

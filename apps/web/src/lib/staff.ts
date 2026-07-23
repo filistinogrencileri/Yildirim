@@ -1,9 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ChoiceMode, LocalizedText, RequestOutcome, RequestStatus, ServiceType } from '@yildirim/shared';
+import type {
+  AppointmentOutcome,
+  ChoiceMode,
+  LocalizedText,
+  RequestOutcome,
+  RequestStatus,
+  ServiceType,
+} from '@yildirim/shared';
 import { api } from './auth';
-import type { RequestChoiceView } from './catalog';
+import type { ExtraAnswerView, RequestChoiceView } from './catalog';
 
 export interface QueueItem {
   id: string;
@@ -18,8 +25,11 @@ export interface StaffRequestDetail {
   id: string;
   referenceNo: string;
   service: { id: string; slug: string; title: LocalizedText; type: ServiceType; choiceMode: ChoiceMode };
+  outcomeKind: string | null;
   status: RequestStatus;
   outcome: RequestOutcome | null;
+  outcomeData: AppointmentOutcome | null;
+  extraAnswers: ExtraAnswerView[];
   submittedAt: string | null;
   decidedAt: string | null;
   student: {
@@ -71,6 +81,7 @@ export function useTransition(id: string) {
       note?: string;
       outcome?: RequestOutcome;
       acceptedChoiceId?: string;
+      outcomeData?: { office: string; appointmentAt: string; note?: string };
     }) => api(`/staff/requests/${id}/transition`, { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['staff'] });
@@ -288,5 +299,48 @@ export function useChangePassword() {
   return useMutation({
     mutationFn: (input: { currentPassword: string; newPassword: string; newPasswordConfirm: string }) =>
       api('/auth/change-password', { method: 'POST', body: JSON.stringify(input) }),
+  });
+}
+
+// ── admin: configurable lists ───────────────────────────────────────────────
+
+export interface AdminListRow {
+  id: string;
+  key: string;
+  name: LocalizedText;
+  items: Array<{ id: string; value: string; label: LocalizedText; isActive: boolean; sortOrder: number }>;
+}
+
+export function useAdminLists() {
+  return useQuery({
+    queryKey: ['admin', 'lists'],
+    queryFn: () => api<AdminListRow[]>('/admin/lists'),
+  });
+}
+
+export function useAddListItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ listId, value, labelAr }: { listId: string; value: string; labelAr: string }) =>
+      api(`/admin/lists/${listId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ value, label: { ar: labelAr } }),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'lists'] }),
+  });
+}
+
+export function useUpdateListItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, ...patch }: { itemId: string; isActive?: boolean; labelAr?: string }) =>
+      api(`/admin/lists/items/${itemId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
+          ...(patch.labelAr !== undefined ? { label: { ar: patch.labelAr } } : {}),
+        }),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'lists'] }),
   });
 }

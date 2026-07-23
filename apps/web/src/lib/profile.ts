@@ -11,7 +11,14 @@ export interface ProfileFieldDef {
   helpText: LocalizedText | null;
   type: FieldType;
   isRequired: boolean;
-  validation: { min?: number; max?: number; maxLength?: number; maxSizeMb?: number } | null;
+  validation: {
+    min?: number;
+    max?: number;
+    maxLength?: number;
+    maxSizeMb?: number;
+    /** conditional display: render only when entry[field] === equals */
+    showIf?: { field: string; equals: unknown };
+  } | null;
   options: Array<{ value: string; label: LocalizedText }> | null;
 }
 

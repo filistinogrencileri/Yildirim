@@ -23,6 +23,7 @@ export const FIELD_TYPES = [
   'TEXTAREA',
   'NUMBER',
   'DATE',
+  'DATETIME',
   'SELECT',
   'MULTI_SELECT',
   'PHONE',

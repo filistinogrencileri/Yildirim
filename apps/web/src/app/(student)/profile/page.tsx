@@ -20,6 +20,14 @@ export default function ProfilePage() {
   const uploadPhoto = useUploadPhoto();
   const photoInput = useRef<HTMLInputElement>(null);
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const PHOTO_ERRORS: Record<string, string> = {
+    PHOTO_BACKGROUND_NOT_WHITE:
+      'يجب أن تكون الصورة بيومترية بخلفية بيضاء بالكامل — أعد التصوير أمام خلفية بيضاء.',
+    NOT_AN_IMAGE: 'الملف ليس صورة صالحة (JPG أو PNG).',
+    FILE_TOO_LARGE: 'حجم الصورة كبير جدًا (الحد ٨ ميغابايت).',
+  };
 
   if (isLoading || !data) {
     return (
@@ -68,9 +76,17 @@ export default function ProfilePage() {
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void uploadPhoto.mutateAsync(f).finally(() => {
-              if (photoInput.current) photoInput.current.value = '';
-            });
+            if (!f) return;
+            setPhotoError(null);
+            void uploadPhoto
+              .mutateAsync(f)
+              .catch((err: unknown) => {
+                const code = err instanceof Error ? err.message : '';
+                setPhotoError(PHOTO_ERRORS[code] ?? 'تعذّر رفع الصورة — أعد المحاولة.');
+              })
+              .finally(() => {
+                if (photoInput.current) photoInput.current.value = '';
+              });
           }}
         />
 
@@ -81,8 +97,15 @@ export default function ProfilePage() {
               ? 'ملفك مكتمل — جاهز للتقديم على الخدمات.'
               : `بقي ${data.completeness.requiredTotal - data.completeness.requiredFilled} من ${data.completeness.requiredTotal} حقول مطلوبة لإكمال ملفك.`}
           </p>
-          {!data.photo && (
-            <p className="mt-1 text-xs text-saffron-700">الصورة الشخصية مطلوبة — اضغط على الدائرة لرفعها.</p>
+          {!data.photo && !photoError && (
+            <p className="mt-1 text-xs text-saffron-700">
+              الصورة الشخصية مطلوبة (بيومترية بخلفية بيضاء) — اضغط على الدائرة لرفعها.
+            </p>
+          )}
+          {photoError && (
+            <p className="mt-1 rounded-lg border border-error-300 bg-error-50 px-3 py-1.5 text-xs text-error-700">
+              {photoError}
+            </p>
           )}
         </div>
 

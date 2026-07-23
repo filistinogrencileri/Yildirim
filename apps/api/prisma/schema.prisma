@@ -44,6 +44,7 @@ enum FieldType {
   TEXTAREA
   NUMBER
   DATE
+  DATETIME
   SELECT
   MULTI_SELECT
   PHONE
@@ -179,6 +180,7 @@ model List {
 
   items            ListItem[]
   fieldDefinitions FieldDefinition[]
+  extraFields      ServiceExtraField[]
 
   @@map("lists")
 }
@@ -310,8 +312,31 @@ model Service {
   requirements   ServiceRequirement[]
   supervisors    ServiceSupervisor[]
   requests       Request[]
+  extraFields    ServiceExtraField[]
 
   @@map("services")
+}
+
+// Service-scoped one-time questions asked at apply time only. They are NOT
+// part of the reusable profile catalog; answers are frozen inside the
+// request's answersSnapshot (extraAnswers) and never stored on the profile.
+model ServiceExtraField {
+  id         String    @id @default(uuid()) @db.Uuid
+  serviceId  String    @map("service_id") @db.Uuid
+  key        String
+  label      Json // {ar, en?, tr?}
+  type       FieldType
+  listId     String?   @map("list_id") @db.Uuid // for SELECT options
+  validation Json? // {min?, max?, maxLength?, ...}
+  isRequired Boolean   @default(true) @map("is_required")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  list    List?   @relation(fields: [listId], references: [id])
+
+  @@unique([serviceId, key])
+  @@map("service_extra_fields")
 }
 
 model ServiceRequirement {
@@ -376,6 +401,10 @@ model Request {
   studentId              String          @map("student_id") @db.Uuid
   status                 RequestStatus   @default(DRAFT)
   outcome                RequestOutcome?
+  // structured outcome payload, shape depends on service.config.outcomeKind
+  // (e.g. APPOINTMENT: {office, appointmentAt, note?}) — generic so future
+  // services with structured outcomes need no new columns
+  outcomeData            Json?           @map("outcome_data")
   acceptedChoiceId       String?         @unique @map("accepted_choice_id") @db.Uuid
   acceptanceLetterFileId String?         @map("acceptance_letter_file_id") @db.Uuid
   answersSnapshot        Json?           @map("answers_snapshot") // frozen at submission

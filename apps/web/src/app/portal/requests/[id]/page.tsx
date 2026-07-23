@@ -20,9 +20,10 @@ import {
 } from '@yildirim/shared';
 import { downloadFile, useAuth } from '@/lib/auth';
 import { fileHref } from '@/lib/profile';
+import { formatExtraValue } from '@/lib/catalog';
 import { useStaffRequest, useTransition, useUploadLetter } from '@/lib/staff';
 import { Button } from '@/components/ui/button';
-import { SelectField } from '@/components/ui/field';
+import { SelectField, TextField } from '@/components/ui/field';
 import { StatusChip, STATUS_LABELS } from '@/components/requests/status-chip';
 
 const card = 'rounded-2xl border border-bone-200 bg-white shadow-[0_8px_32px_-24px_rgba(31,42,92,0.25)]';
@@ -39,6 +40,9 @@ export default function StaffRequestPage({ params }: { params: Promise<{ id: str
   const [completing, setCompleting] = useState(false);
   const [outcome, setOutcome] = useState<'ACCEPTED' | 'REJECTED'>('ACCEPTED');
   const [acceptedChoiceId, setAcceptedChoiceId] = useState('');
+  const [confirmedOffice, setConfirmedOffice] = useState('');
+  const [confirmedAt, setConfirmedAt] = useState('');
+  const [appointmentNote, setAppointmentNote] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
 
   const allowedTargets = useMemo(() => {
@@ -57,8 +61,16 @@ export default function StaffRequestPage({ params }: { params: Promise<{ id: str
   }
 
   const isPlacement = r.service.type === 'UNIVERSITY_PLACEMENT';
+  const isAppointment = r.outcomeKind === 'APPOINTMENT';
 
-  const doTransition = async (to: RequestStatus, extra?: { outcome?: 'ACCEPTED' | 'REJECTED'; acceptedChoiceId?: string }) => {
+  const doTransition = async (
+    to: RequestStatus,
+    extra?: {
+      outcome?: 'ACCEPTED' | 'REJECTED';
+      acceptedChoiceId?: string;
+      outcomeData?: { office: string; appointmentAt: string; note?: string };
+    },
+  ) => {
     setActionError(null);
     try {
       await transition.mutateAsync({ to, note: note.trim() || undefined, ...extra });
@@ -135,7 +147,7 @@ export default function StaffRequestPage({ params }: { params: Promise<{ id: str
           />
           <div className="mt-4 flex flex-wrap gap-3">
             {allowedTargets.map((to) =>
-              to === 'COMPLETED' && isPlacement ? (
+              to === 'COMPLETED' && (isPlacement || isAppointment) ? (
                 <Button key={to} variant={completing ? 'secondary' : 'primary'} onClick={() => setCompleting((v) => !v)}>
                   {completing ? 'إخفاء إنهاء الطلب' : 'إنهاء الطلب (النتيجة)'}
                 </Button>
@@ -165,12 +177,42 @@ export default function StaffRequestPage({ params }: { params: Promise<{ id: str
                       onChange={() => setOutcome(o)}
                       className="size-4 accent-saffron-500"
                     />
-                    {o === 'ACCEPTED' ? 'مقبول 🎉' : 'مرفوض'}
+                    {o === 'ACCEPTED'
+                      ? isAppointment
+                        ? 'تم حجز الموعد ✅'
+                        : 'مقبول 🎉'
+                      : isAppointment
+                        ? 'تعذّر الحجز'
+                        : 'مرفوض'}
                   </label>
                 ))}
               </div>
 
-              {outcome === 'ACCEPTED' && (
+              {outcome === 'ACCEPTED' && isAppointment && (
+                <div className="mt-4 space-y-4">
+                  <TextField
+                    label="الفرع/المكتب المؤكَّد"
+                    value={confirmedOffice}
+                    onChange={(e) => setConfirmedOffice(e.target.value)}
+                    placeholder="مثال: إدارة الهجرة — إسطنبول (الفاتح)"
+                  />
+                  <TextField
+                    label="تاريخ ووقت الموعد المؤكَّد"
+                    type="datetime-local"
+                    dir="ltr"
+                    value={confirmedAt}
+                    onChange={(e) => setConfirmedAt(e.target.value)}
+                  />
+                  <TextField
+                    label="ملاحظة تظهر للطالب (اختياري)"
+                    value={appointmentNote}
+                    onChange={(e) => setAppointmentNote(e.target.value)}
+                    placeholder="مثال: أحضر جواز السفر الأصلي وصورتين بيومتريتين"
+                  />
+                </div>
+              )}
+
+              {outcome === 'ACCEPTED' && isPlacement && (
                 <div className="mt-4 space-y-4">
                   <SelectField
                     label="الرغبة المقبولة"
@@ -229,11 +271,26 @@ export default function StaffRequestPage({ params }: { params: Promise<{ id: str
               <Button
                 className="mt-5"
                 loading={transition.isPending}
-                disabled={outcome === 'ACCEPTED' && (!acceptedChoiceId || !r.acceptanceLetterUrl)}
+                disabled={
+                  outcome === 'ACCEPTED' &&
+                  (isPlacement
+                    ? !acceptedChoiceId || !r.acceptanceLetterUrl
+                    : isAppointment
+                      ? !confirmedOffice.trim() || !confirmedAt
+                      : false)
+                }
                 onClick={() =>
                   void doTransition('COMPLETED', {
                     outcome,
-                    acceptedChoiceId: outcome === 'ACCEPTED' ? acceptedChoiceId : undefined,
+                    acceptedChoiceId: isPlacement && outcome === 'ACCEPTED' ? acceptedChoiceId : undefined,
+                    outcomeData:
+                      isAppointment && outcome === 'ACCEPTED'
+                        ? {
+                            office: confirmedOffice.trim(),
+                            appointmentAt: confirmedAt,
+                            ...(appointmentNote.trim() ? { note: appointmentNote.trim() } : {}),
+                          }
+                        : undefined,
                   })
                 }
               >
@@ -245,6 +302,28 @@ export default function StaffRequestPage({ params }: { params: Promise<{ id: str
           {actionError && (
             <p className="mt-4 rounded-xl border border-error-300 bg-error-50 px-4 py-3 text-sm text-error-700">
               {actionError}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* one-time answers the student submitted with this request */}
+      {r.extraAnswers.length > 0 && (
+        <div className={`mt-6 ${card} p-6`}>
+          <h2 className="text-sm font-semibold text-ink-700">ما طلبه الطالب</h2>
+          <dl className="mt-3 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+            {r.extraAnswers.map((a) => (
+              <div key={a.key} className="flex items-baseline justify-between gap-3 border-b border-bone-200 pb-2">
+                <dt className="text-sm text-ink-500">{localize(a.label)}</dt>
+                <dd className="text-sm font-medium text-ink-900">{formatExtraValue(a)}</dd>
+              </div>
+            ))}
+          </dl>
+          {r.outcomeData?.appointmentAt && (
+            <p className="mt-4 rounded-xl border border-turquoise-300 bg-turquoise-50 px-4 py-3 text-sm text-turquoise-700">
+              الموعد المؤكَّد: {r.outcomeData.office} —{' '}
+              {new Date(r.outcomeData.appointmentAt).toLocaleString('ar', { dateStyle: 'full', timeStyle: 'short' })}
+              {r.outcomeData.note ? ` · ${r.outcomeData.note}` : ''}
             </p>
           )}
         </div>

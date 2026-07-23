@@ -116,6 +116,17 @@ export function DynamicField({ field, value, onChange }: Props) {
           onChange={(e) => onChange(e.target.value || null)}
         />
       );
+    case 'DATETIME':
+      return (
+        <TextField
+          label={label}
+          hint={hint}
+          type="datetime-local"
+          dir="ltr"
+          value={(value as string) ?? ''}
+          onChange={(e) => onChange(e.target.value || null)}
+        />
+      );
     default:
       return (
         <TextField

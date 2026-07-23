@@ -1,9 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
-import type { FieldDefinition, ListItem } from '@prisma/client';
+import type { FieldType } from '@prisma/client';
 
 const E164 = /^\+[1-9]\d{7,14}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
 interface Validation {
   min?: number;
@@ -14,14 +15,22 @@ interface Validation {
 }
 
 /**
+ * Structural shape both FieldDefinition and ServiceExtraField satisfy —
+ * the validator only needs type/key/validation and the SELECT options.
+ */
+export interface ValidatableField {
+  key: string;
+  type: FieldType;
+  validation: unknown;
+  list: { items: Array<{ value: string; isActive: boolean }> } | null;
+}
+
+/**
  * Validates a submitted value against its field definition. Field types with
  * files (FILE_PDF / FILE_IMAGE) are linked via fileId and validated at upload
  * time — a non-null `value` on them is rejected here.
  */
-export function validateFieldValue(
-  field: FieldDefinition & { list: { items: ListItem[] } | null },
-  value: unknown,
-): unknown {
+export function validateFieldValue(field: ValidatableField, value: unknown): unknown {
   if (value === null || value === undefined || value === '') return null;
   const rules = (field.validation ?? {}) as Validation;
 
@@ -44,6 +53,13 @@ export function validateFieldValue(
     case 'DATE': {
       if (typeof value !== 'string' || !ISO_DATE.test(value) || isNaN(Date.parse(value))) {
         throw bad(field, 'EXPECTED_DATE');
+      }
+      return value;
+    }
+    case 'DATETIME': {
+      // matches <input type="datetime-local"> output: YYYY-MM-DDTHH:mm
+      if (typeof value !== 'string' || !ISO_DATETIME.test(value) || isNaN(Date.parse(value))) {
+        throw bad(field, 'EXPECTED_DATETIME');
       }
       return value;
     }
@@ -79,14 +95,11 @@ export function validateFieldValue(
   }
 }
 
-function assertOption(
-  field: FieldDefinition & { list: { items: ListItem[] } | null },
-  value: string,
-): void {
+function assertOption(field: ValidatableField, value: string): void {
   const ok = field.list?.items.some((i) => i.value === value && i.isActive);
   if (!ok) throw bad(field, 'OPTION_NOT_IN_LIST');
 }
 
-function bad(field: FieldDefinition, code: string): BadRequestException {
+function bad(field: ValidatableField, code: string): BadRequestException {
   return new BadRequestException(`${code}:${field.key}`);
 }

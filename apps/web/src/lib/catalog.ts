@@ -1,7 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ChoiceMode, LocalizedText, RequestOutcome, RequestStatus, ServiceType } from '@yildirim/shared';
+import {
+  localize,
+  type AppointmentOutcome,
+  type ChoiceMode,
+  type FieldType,
+  type LocalizedText,
+  type RequestOutcome,
+  type RequestStatus,
+  type ServiceType,
+} from '@yildirim/shared';
 import { api } from './auth';
 
 export interface ServiceSummary {
@@ -15,6 +24,16 @@ export interface ServiceSummary {
   deadlineAt: string | null;
 }
 
+export interface ServiceExtraFieldDef {
+  id: string;
+  key: string;
+  label: LocalizedText;
+  type: FieldType;
+  isRequired: boolean;
+  validation: { min?: number; max?: number; maxLength?: number } | null;
+  options: Array<{ value: string; label: LocalizedText }> | null;
+}
+
 export interface ServiceDetail extends ServiceSummary {
   requirements: Array<{
     fieldId: string;
@@ -23,6 +42,7 @@ export interface ServiceDetail extends ServiceSummary {
     sectionKey: string;
     sectionTitle: LocalizedText;
   }>;
+  extraFields: ServiceExtraFieldDef[];
   universities: Array<{ id: string; name: LocalizedText; city: string | null }>;
   majors: Array<{ id: string; name: LocalizedText }>;
 }
@@ -41,17 +61,44 @@ export interface RequestChoiceView {
   major: { id: string; name: LocalizedText };
 }
 
+export interface ExtraAnswerView {
+  key: string;
+  label: LocalizedText;
+  type: FieldType;
+  value: unknown;
+  display?: LocalizedText | string;
+}
+
+/** Human-readable rendering for a frozen one-time answer. */
+export function formatExtraValue(a: ExtraAnswerView): string {
+  if (a.display) {
+    return typeof a.display === 'string' ? a.display : localize(a.display);
+  }
+  if (a.value === null || a.value === undefined || a.value === '') return '—';
+  if (a.type === 'BOOLEAN') return a.value ? 'نعم' : 'لا';
+  if (a.type === 'DATETIME') {
+    return new Date(String(a.value)).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+  if (a.type === 'DATE') {
+    return new Date(String(a.value)).toLocaleDateString('ar', { dateStyle: 'medium' });
+  }
+  return String(a.value);
+}
+
 export interface StudentRequest {
   id: string;
   referenceNo: string;
   service: { id: string; slug: string; title: LocalizedText; type: ServiceType; choiceMode: ChoiceMode };
+  outcomeKind: string | null;
   status: RequestStatus;
   outcome: RequestOutcome | null;
+  outcomeData: AppointmentOutcome | null;
   submittedAt: string | null;
   decidedAt: string | null;
   choices: RequestChoiceView[];
   acceptedChoiceId: string | null;
   acceptanceLetterUrl: string | null;
+  extraAnswers: ExtraAnswerView[];
   history: Array<{ toStatus: RequestStatus; note: string | null; at: string }>;
   createdAt: string;
 }
@@ -96,8 +143,11 @@ export function useEligibility(slug: string, enabled: boolean) {
 export function useApply() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { serviceSlug: string; choices: Array<{ universityId: string; majorId: string }> }) =>
-      api<StudentRequest>('/requests', { method: 'POST', body: JSON.stringify(input) }),
+    mutationFn: (input: {
+      serviceSlug: string;
+      choices: Array<{ universityId: string; majorId: string }>;
+      extraAnswers?: Record<string, unknown>;
+    }) => api<StudentRequest>('/requests', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['requests'] });
       void qc.invalidateQueries({ queryKey: ['catalog', 'eligibility'] });

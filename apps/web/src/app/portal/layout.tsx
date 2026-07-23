@@ -31,6 +31,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       ? [
           { href: '/portal/services', label: 'الخدمات', exact: false },
           { href: '/portal/supervisors', label: 'المشرفون', exact: false },
+          { href: '/portal/lists', label: 'القوائم', exact: false },
           { href: '/portal/site', label: 'الموقع', exact: false },
         ]
       : []),

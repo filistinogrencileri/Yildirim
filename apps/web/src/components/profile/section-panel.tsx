@@ -35,6 +35,13 @@ export function SectionPanel({ section }: { section: ProfileSectionData }) {
   const scalarFields = section.fields.filter((f) => f.type !== 'FILE_PDF' && f.type !== 'FILE_IMAGE');
   const fileFields = section.fields.filter((f) => f.type === 'FILE_PDF' || f.type === 'FILE_IMAGE');
 
+  /** conditional display: hide a field until its showIf condition matches */
+  const isVisible = (f: (typeof section.fields)[number], entry: EntryState): boolean => {
+    const cond = f.validation?.showIf;
+    if (!cond) return true;
+    return entry[cond.field] === cond.equals;
+  };
+
   const setValue = (entryIndex: number, fieldKey: string, value: unknown) => {
     setSaved(false);
     setEntries((prev) => prev.map((e, i) => (i === entryIndex ? { ...e, [fieldKey]: value } : e)));
@@ -44,7 +51,10 @@ export function SectionPanel({ section }: { section: ProfileSectionData }) {
     const values: ValueInput[] = [];
     entries.forEach((entry, entryIndex) => {
       for (const f of scalarFields) {
-        values.push({ fieldId: f.id, entryIndex, value: entry[f.key] ?? null });
+        // untouched checkboxes count as an explicit "no" so the field reads as
+        // filled after the first save (required-BOOLEAN fields stay usable)
+        const fallback = f.type === 'BOOLEAN' ? false : null;
+        values.push({ fieldId: f.id, entryIndex, value: entry[f.key] ?? fallback });
       }
     });
     if (values.length === 0) return;
@@ -81,7 +91,7 @@ export function SectionPanel({ section }: { section: ProfileSectionData }) {
                 </button>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
-                {scalarFields.map((f) => (
+                {scalarFields.filter((f) => isVisible(f, entry)).map((f) => (
                   <DynamicField
                     key={f.id}
                     field={f}
@@ -105,14 +115,16 @@ export function SectionPanel({ section }: { section: ProfileSectionData }) {
         <>
           {scalarFields.length > 0 && (
             <div className="grid gap-5 sm:grid-cols-2">
-              {scalarFields.map((f) => (
-                <DynamicField
-                  key={f.id}
-                  field={f}
-                  value={entries[0]?.[f.key]}
-                  onChange={(v) => setValue(0, f.key, v)}
-                />
-              ))}
+              {scalarFields
+                .filter((f) => isVisible(f, entries[0] ?? {}))
+                .map((f) => (
+                  <DynamicField
+                    key={f.id}
+                    field={f}
+                    value={entries[0]?.[f.key]}
+                    onChange={(v) => setValue(0, f.key, v)}
+                  />
+                ))}
             </div>
           )}
           {fileFields.length > 0 && (

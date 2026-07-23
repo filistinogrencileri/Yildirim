@@ -52,19 +52,77 @@ export class FilesService {
     return this.persist(ownerUserId, opts.kind, file.buffer, file.originalname, 'application/pdf');
   }
 
-  /** Profile photo: signature check + sharp re-encode (strips EXIF and any payload). */
-  async storeProfilePhoto(ownerUserId: string, file: UploadedBuffer): Promise<StoredFile> {
+  /**
+   * Profile photo: signature check + biometric white-background check +
+   * sharp re-encode (strips EXIF and any payload).
+   */
+  async storeProfilePhoto(
+    ownerUserId: string,
+    file: UploadedBuffer,
+    opts: { whiteBackground?: boolean } = {},
+  ): Promise<StoredFile> {
     if (file.size > 8 * 1024 * 1024) throw new BadRequestException('FILE_TOO_LARGE');
     const kind = sniff(file.buffer);
     if (kind !== 'jpeg' && kind !== 'png' && kind !== 'webp') {
       throw new BadRequestException('NOT_AN_IMAGE');
     }
+    if (opts.whiteBackground !== false) await this.assertWhiteBackground(file.buffer);
     const processed = await sharp(file.buffer)
       .rotate() // apply EXIF orientation before it gets stripped
       .resize(512, 512, { fit: 'cover', position: 'attention' })
       .jpeg({ quality: 85 })
       .toBuffer();
     return this.persist(ownerUserId, 'PROFILE_PHOTO', processed, 'photo.jpg', 'image/jpeg');
+  }
+
+  /**
+   * Biometric-photo gate (residence-permit requirement): the background must
+   * be white. Runs on the ORIGINAL image (before the cover-crop removes
+   * edges): samples the top edge, the corners, and the upper side edges —
+   * the bottom edge is skipped because shoulders legitimately occupy it.
+   */
+  private async assertWhiteBackground(buffer: Buffer): Promise<void> {
+    const MIN_CHANNEL = 190; // each of R/G/B at least this bright
+    const MAX_SPREAD = 35; // near-gray (no color cast)
+    const REQUIRED_RATIO = 0.82;
+
+    const { data, info } = await sharp(buffer)
+      .rotate()
+      .resize(160, 160, { fit: 'inside' })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const { width, height, channels } = info;
+
+    const isWhite = (x: number, y: number): boolean => {
+      const i = (y * width + x) * channels;
+      const r = data[i]!, g = data[i + 1]!, b = data[i + 2]!;
+      return (
+        Math.min(r, g, b) >= MIN_CHANNEL && Math.max(r, g, b) - Math.min(r, g, b) <= MAX_SPREAD
+      );
+    };
+
+    let total = 0;
+    let white = 0;
+    // top edge: 3 rows, full width
+    for (let y = 0; y < Math.min(3, height); y++) {
+      for (let x = 0; x < width; x++) {
+        total++;
+        if (isWhite(x, y)) white++;
+      }
+    }
+    // side edges: 2 columns each, upper 60% (below that shoulders may touch)
+    const sideDepth = Math.floor(height * 0.6);
+    for (let y = 3; y < sideDepth; y++) {
+      for (const x of [0, 1, width - 2, width - 1]) {
+        total++;
+        if (isWhite(x, y)) white++;
+      }
+    }
+
+    if (total === 0 || white / total < REQUIRED_RATIO) {
+      throw new BadRequestException('PHOTO_BACKGROUND_NOT_WHITE');
+    }
   }
 
   private async persist(

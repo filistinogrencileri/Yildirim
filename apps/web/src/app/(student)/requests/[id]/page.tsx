@@ -2,10 +2,18 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle, DownloadSimple, Medal, WarningCircle } from '@phosphor-icons/react';
+import {
+  ArrowRight,
+  CalendarCheck,
+  CheckCircle,
+  DownloadSimple,
+  MapPin,
+  Medal,
+  WarningCircle,
+} from '@phosphor-icons/react';
 import { localize, REQUEST_TRANSITIONS } from '@yildirim/shared';
 import { fileHref } from '@/lib/profile';
-import { useCancelRequest, useMyRequest, useResubmit } from '@/lib/catalog';
+import { formatExtraValue, useCancelRequest, useMyRequest, useResubmit } from '@/lib/catalog';
 import { Button } from '@/components/ui/button';
 import { StatusChip, STATUS_LABELS } from '@/components/requests/status-chip';
 
@@ -55,7 +63,34 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* outcome banners */}
-        {r.outcome === 'ACCEPTED' && (
+        {r.outcomeData?.appointmentAt && (
+          <div className="mt-6 rounded-xl border border-turquoise-300 bg-turquoise-50 p-6">
+            <div className="flex items-center gap-3">
+              <CalendarCheck size={28} weight="duotone" className="text-turquoise-600" />
+              <div>
+                <h2 className="font-heading text-lg font-bold text-turquoise-700">تم تأكيد موعدك 🎉</h2>
+                <p className="mt-0.5 text-sm text-turquoise-700/80">احضر بأوراقك الأصلية في الموعد المحدد.</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3 text-sm text-ink-900">
+                <MapPin size={18} className="shrink-0 text-turquoise-600" />
+                {r.outcomeData.office}
+              </div>
+              <div className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3 text-sm font-medium text-ink-900">
+                <CalendarCheck size={18} className="shrink-0 text-turquoise-600" />
+                {new Date(r.outcomeData.appointmentAt).toLocaleString('ar', {
+                  dateStyle: 'full',
+                  timeStyle: 'short',
+                })}
+              </div>
+            </div>
+            {r.outcomeData.note && (
+              <p className="mt-3 text-sm leading-6 text-turquoise-700/90">{r.outcomeData.note}</p>
+            )}
+          </div>
+        )}
+        {r.outcome === 'ACCEPTED' && !r.outcomeData && (
           <div className="mt-6 rounded-xl border border-turquoise-300 bg-turquoise-50 p-6">
             <div className="flex items-center gap-3">
               <Medal size={28} weight="duotone" className="text-turquoise-600" />
@@ -136,6 +171,21 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* one-time service answers submitted with this request */}
+        {r.extraAnswers.length > 0 && (
+          <div className="mt-6 border-t border-bone-200 pt-5">
+            <h2 className="text-sm font-semibold text-ink-700">تفاصيل طلبك</h2>
+            <dl className="mt-3 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+              {r.extraAnswers.map((a) => (
+                <div key={a.key} className="flex items-baseline justify-between gap-3 border-b border-bone-200 pb-2">
+                  <dt className="text-sm text-ink-500">{localize(a.label)}</dt>
+                  <dd className="text-sm font-medium text-ink-900">{formatExtraValue(a)}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         )}
 

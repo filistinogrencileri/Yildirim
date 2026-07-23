@@ -16,7 +16,7 @@ export class RequestsController {
   @Post()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   apply(@CurrentUser() user: AuthUser, @Body() dto: ApplyDto) {
-    return this.requests.apply(user.id, dto.serviceSlug, dto.choices);
+    return this.requests.apply(user.id, dto.serviceSlug, dto.choices, dto.extraAnswers ?? {});
   }
 
   @Get('mine')

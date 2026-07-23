@@ -113,6 +113,46 @@ async function main() {
     { value: 'phd', label: { ar: 'دكتوراه', en: 'PhD' } },
   ]);
 
+  await seedList(LIST_KEYS.MARITAL_STATUS, { ar: 'الحالة الاجتماعية', en: 'Marital status' }, [
+    { value: 'single', label: { ar: 'أعزب/عزباء', en: 'Single' } },
+    { value: 'married', label: { ar: 'متزوج/ة', en: 'Married' } },
+    { value: 'divorced', label: { ar: 'مطلّق/ة', en: 'Divorced' } },
+    { value: 'widowed', label: { ar: 'أرمل/ة', en: 'Widowed' } },
+  ]);
+
+  await seedList(LIST_KEYS.PASSPORT_TYPES, { ar: 'نوع جواز السفر', en: 'Passport type' }, [
+    { value: 'ordinary', label: { ar: 'عادي', en: 'Ordinary' } },
+    { value: 'special', label: { ar: 'خاص', en: 'Special' } },
+    { value: 'service', label: { ar: 'خدمة', en: 'Service' } },
+    { value: 'diplomatic', label: { ar: 'دبلوماسي', en: 'Diplomatic' } },
+  ]);
+
+  await seedList(LIST_KEYS.UNIVERSITY_TYPES, { ar: 'نوع الجامعة', en: 'University type' }, [
+    { value: 'state', label: { ar: 'حكومية', en: 'State' } },
+    { value: 'foundation', label: { ar: 'وقفية (خاصة)', en: 'Foundation' } },
+  ]);
+
+  await seedList(
+    LIST_KEYS.RESIDENCE_REGISTRATION_TYPES,
+    { ar: 'نوع التسجيل على الإقامة', en: 'Residence registration type' },
+    [
+      { value: 'first_time', label: { ar: 'تسجيل أول مرة', en: 'First-time application' } },
+      { value: 'extension', label: { ar: 'تمديد', en: 'Extension' } },
+    ],
+  );
+
+  await seedList(LIST_KEYS.IMMIGRATION_OFFICES, { ar: 'فروع إدارة الهجرة', en: 'Immigration offices' }, [
+    { value: 'istanbul_fatih', label: { ar: 'إسطنبول — الفاتح', en: 'Istanbul — Fatih' } },
+    { value: 'istanbul_pendik', label: { ar: 'إسطنبول — بنديك', en: 'Istanbul — Pendik' } },
+    { value: 'istanbul_esenyurt', label: { ar: 'إسطنبول — إسنيورت', en: 'Istanbul — Esenyurt' } },
+    { value: 'ankara', label: { ar: 'أنقرة', en: 'Ankara' } },
+    { value: 'bursa', label: { ar: 'بورصة', en: 'Bursa' } },
+    { value: 'izmir', label: { ar: 'إزمير', en: 'Izmir' } },
+    { value: 'sakarya', label: { ar: 'سكاريا', en: 'Sakarya' } },
+    { value: 'antalya', label: { ar: 'أنطاليا', en: 'Antalya' } },
+    { value: 'trabzon', label: { ar: 'طرابزون', en: 'Trabzon' } },
+  ]);
+
   await seedList(LIST_KEYS.COUNTRIES, { ar: 'الدول', en: 'Countries' }, [
     { value: 'SY', label: { ar: 'سوريا', en: 'Syria' } },
     { value: 'PS', label: { ar: 'فلسطين', en: 'Palestine' } },
@@ -132,13 +172,19 @@ async function main() {
     { key: 'gender', label: { ar: 'الجنس', en: 'Gender' }, type: 'SELECT', required: true, listKey: LIST_KEYS.GENDERS },
     { key: 'nationality', label: { ar: 'الجنسية', en: 'Nationality' }, type: 'SELECT', required: true, listKey: LIST_KEYS.COUNTRIES },
     { key: 'residence_country', label: { ar: 'بلد الإقامة الحالي', en: 'Country of residence' }, type: 'SELECT', required: true, listKey: LIST_KEYS.COUNTRIES },
-    { key: 'passport_no', label: { ar: 'رقم جواز السفر', en: 'Passport number' }, type: 'TEXT', required: false, validation: { maxLength: 20 } },
+    { key: 'place_of_birth', label: { ar: 'مكان الميلاد', en: 'Place of birth' }, type: 'TEXT', validation: { maxLength: 120 } },
+    { key: 'country_of_birth', label: { ar: 'دولة الميلاد', en: 'Country of birth' }, type: 'SELECT', listKey: LIST_KEYS.COUNTRIES },
+    { key: 'marital_status', label: { ar: 'الحالة الاجتماعية', en: 'Marital status' }, type: 'SELECT', listKey: LIST_KEYS.MARITAL_STATUS },
+    { key: 'passport_given_name', label: { ar: 'الاسم كما في جواز السفر', en: 'Given name (as in passport)' }, type: 'TEXT', validation: { maxLength: 80, regex: "^[A-Za-z\\s.'-]+$" } },
+    { key: 'passport_surname', label: { ar: 'اسم العائلة كما في جواز السفر', en: 'Surname (as in passport)' }, type: 'TEXT', validation: { maxLength: 80, regex: "^[A-Za-z\\s.'-]+$" } },
+    { key: 'father_name', label: { ar: 'اسم الأب', en: "Father's name" }, type: 'TEXT', validation: { maxLength: 80 } },
+    { key: 'mother_name', label: { ar: 'اسم الأم', en: "Mother's name" }, type: 'TEXT', validation: { maxLength: 80 } },
   ]);
 
   await seedSection(SECTION_KEYS.ACADEMIC_INFO, { ar: 'المعلومات الأكاديمية', en: 'Academic info' }, 2, false, [
     { key: 'degree_level', label: { ar: 'المرحلة الدراسية الحالية', en: 'Current degree level' }, type: 'SELECT', required: true, listKey: LIST_KEYS.DEGREE_LEVELS },
     { key: 'high_school_gpa', label: { ar: 'معدل الشهادة الثانوية (%)', en: 'High-school GPA (%)' }, type: 'NUMBER', required: true, validation: { min: 0, max: 100 } },
-    { key: 'graduation_year', label: { ar: 'سنة التخرج', en: 'Graduation year' }, type: 'NUMBER', required: true, validation: { min: 1990, max: 2035 } },
+    { key: 'graduation_year', label: { ar: 'سنة التخرج من الثانوية', en: 'High-school graduation year' }, type: 'NUMBER', required: true, validation: { min: 1990, max: 2035 } },
   ]);
 
   await seedSection(SECTION_KEYS.WORK_EXPERIENCE, { ar: 'الخبرات العملية', en: 'Work experience' }, 3, true, [
@@ -151,6 +197,50 @@ async function main() {
     { key: 'passport_copy', label: { ar: 'صورة جواز السفر', en: 'Passport copy' }, type: 'FILE_PDF', required: true, validation: { maxSizeMb: 10 } },
     { key: 'high_school_certificate', label: { ar: 'الشهادة الثانوية', en: 'High-school certificate' }, type: 'FILE_PDF', required: true, validation: { maxSizeMb: 10 } },
     { key: 'transcript', label: { ar: 'كشف العلامات', en: 'Transcript' }, type: 'FILE_PDF', validation: { maxSizeMb: 10 } },
+  ]);
+
+  // ── residence-permit profile sections ──
+  // one-time migration: passport_no was originally seeded under personal_info;
+  // move the SAME field row (values reference fieldId, so student data survives)
+  {
+    const passportSection = await prisma.profileSection.upsert({
+      where: { key: 'passport_info' },
+      update: {},
+      create: { key: 'passport_info', title: { ar: 'معلومات جواز السفر', en: 'Passport information' }, sortOrder: 5 },
+    });
+    const personalSection = await prisma.profileSection.findUniqueOrThrow({
+      where: { key: SECTION_KEYS.PERSONAL_INFO },
+    });
+    await prisma.fieldDefinition.updateMany({
+      where: { sectionId: personalSection.id, key: 'passport_no' },
+      data: { sectionId: passportSection.id },
+    });
+  }
+
+  await seedSection('passport_info', { ar: 'معلومات جواز السفر', en: 'Passport information' }, 5, false, [
+    { key: 'passport_no', label: { ar: 'رقم جواز السفر', en: 'Passport number' }, type: 'TEXT', validation: { maxLength: 20 } },
+    { key: 'passport_type', label: { ar: 'نوع جواز السفر', en: 'Passport type' }, type: 'SELECT', listKey: LIST_KEYS.PASSPORT_TYPES },
+    { key: 'passport_issue_date', label: { ar: 'تاريخ إصدار جواز السفر', en: 'Passport issue date' }, type: 'DATE' },
+    { key: 'passport_expiry_date', label: { ar: 'تاريخ انتهاء جواز السفر', en: 'Passport expiry date' }, type: 'DATE' },
+    { key: 'passport_issuing_country', label: { ar: 'دولة إصدار جواز السفر', en: 'Passport issuing country' }, type: 'SELECT', listKey: LIST_KEYS.COUNTRIES },
+  ]);
+
+  await seedSection('residence_contact', { ar: 'العنوان في تركيا', en: 'Address in Turkey' }, 6, false, [
+    { key: 'turkey_address', label: { ar: 'العنوان الحالي في تركيا', en: 'Current address in Turkey' }, type: 'TEXTAREA', validation: { maxLength: 500 } },
+  ]);
+
+  await seedSection('turkey_university_info', { ar: 'الجامعة في تركيا', en: 'University in Turkey' }, 7, false, [
+    { key: 'university_type', label: { ar: 'نوع الجامعة', en: 'University type' }, type: 'SELECT', listKey: LIST_KEYS.UNIVERSITY_TYPES },
+    { key: 'enrollment_date', label: { ar: 'تاريخ بدء الدراسة', en: 'Enrollment date' }, type: 'DATE' },
+    { key: 'expected_graduation_date', label: { ar: 'تاريخ التخرج المتوقع', en: 'Expected graduation date' }, type: 'DATE' },
+    { key: 'university_name', label: { ar: 'اسم الجامعة', en: 'University name' }, type: 'TEXT', validation: { maxLength: 160 } },
+    { key: 'university_address', label: { ar: 'عنوان الجامعة', en: 'University address' }, type: 'TEXT', validation: { maxLength: 300 } },
+    { key: 'student_number', label: { ar: 'الرقم الجامعي', en: 'Student number' }, type: 'TEXT', validation: { maxLength: 40 } },
+    { key: 'faculty', label: { ar: 'الكلية', en: 'Faculty' }, type: 'TEXT', validation: { maxLength: 120 } },
+    { key: 'major', label: { ar: 'التخصص', en: 'Major' }, type: 'TEXT', validation: { maxLength: 120 } },
+    { key: 'class_year', label: { ar: 'الصف/المستوى الدراسي', en: 'Class/year level' }, type: 'TEXT', validation: { maxLength: 40 } },
+    { key: 'insurance_available', label: { ar: 'التأمين الصحي متوفر', en: 'Health insurance available' }, type: 'BOOLEAN' },
+    { key: 'insurance_type', label: { ar: 'نوع التأمين', en: 'Insurance type' }, type: 'TEXT', validation: { maxLength: 120, showIf: { field: 'insurance_available', equals: true } } },
   ]);
 
   // ── starter universities & majors ──
@@ -274,6 +364,102 @@ async function main() {
     update: {},
     create: { serviceId: privateService.id, userId: supervisor.id },
   });
+
+  // ── residence permit appointment service (APPOINTMENT outcome kind) ──
+  const residenceRequirementKeys: Array<[string, string]> = [
+    // [sectionKey, fieldKey]
+    [SECTION_KEYS.PERSONAL_INFO, 'birth_date'],
+    [SECTION_KEYS.PERSONAL_INFO, 'gender'],
+    [SECTION_KEYS.PERSONAL_INFO, 'nationality'],
+    [SECTION_KEYS.PERSONAL_INFO, 'place_of_birth'],
+    [SECTION_KEYS.PERSONAL_INFO, 'country_of_birth'],
+    [SECTION_KEYS.PERSONAL_INFO, 'marital_status'],
+    [SECTION_KEYS.PERSONAL_INFO, 'passport_given_name'],
+    [SECTION_KEYS.PERSONAL_INFO, 'passport_surname'],
+    [SECTION_KEYS.PERSONAL_INFO, 'father_name'],
+    [SECTION_KEYS.PERSONAL_INFO, 'mother_name'],
+    ['passport_info', 'passport_no'],
+    ['passport_info', 'passport_type'],
+    ['passport_info', 'passport_issue_date'],
+    ['passport_info', 'passport_expiry_date'],
+    ['passport_info', 'passport_issuing_country'],
+    ['residence_contact', 'turkey_address'],
+    ['turkey_university_info', 'university_type'],
+    ['turkey_university_info', 'enrollment_date'],
+    ['turkey_university_info', 'expected_graduation_date'],
+    ['turkey_university_info', 'university_name'],
+    ['turkey_university_info', 'university_address'],
+    ['turkey_university_info', 'student_number'],
+    ['turkey_university_info', 'faculty'],
+    ['turkey_university_info', 'major'],
+    ['turkey_university_info', 'class_year'],
+    ['turkey_university_info', 'insurance_available'],
+    [SECTION_KEYS.DOCUMENTS, 'passport_copy'],
+  ];
+  const residenceFieldIds: string[] = [];
+  for (const [sectionKey, fieldKey] of residenceRequirementKeys) {
+    const section = await prisma.profileSection.findUniqueOrThrow({ where: { key: sectionKey } });
+    const field = await prisma.fieldDefinition.findUniqueOrThrow({
+      where: { sectionId_key: { sectionId: section.id, key: fieldKey } },
+    });
+    residenceFieldIds.push(field.id);
+  }
+
+  const residenceService = await prisma.service.upsert({
+    where: { slug: 'residence-permit-appointment' },
+    update: { config: { outcomeKind: 'APPOINTMENT' } },
+    create: {
+      slug: 'residence-permit-appointment',
+      title: { ar: 'حجز موعد إقامة طلابية', en: 'Student Residence Permit Appointment' },
+      description: {
+        ar: 'نحجز لك موعد تقديم أوراق الإقامة الطلابية (أول مرة أو تمديد) لدى إدارة الهجرة التركية. أكمل بياناتك ومستنداتك، اختر التفاصيل المطلوبة، وسيؤكد لك مشرفنا الموعد الرسمي.',
+        en: 'We book your Turkish student residence permit appointment (first-time or extension).',
+      },
+      type: 'GENERAL',
+      choiceMode: 'SINGLE',
+      maxChoices: 1,
+      isPublished: true,
+      publishedAt: new Date(),
+      config: { outcomeKind: 'APPOINTMENT' },
+      requirements: {
+        create: residenceFieldIds.map((fieldId, i) => ({ fieldId, isRequired: true, sortOrder: i })),
+      },
+    },
+  });
+  await prisma.serviceSupervisor.upsert({
+    where: { serviceId_userId: { serviceId: residenceService.id, userId: supervisor.id } },
+    update: {},
+    create: { serviceId: residenceService.id, userId: supervisor.id },
+  });
+
+  // service-only one-time questions
+  const officesListId = (await prisma.list.findUniqueOrThrow({ where: { key: LIST_KEYS.IMMIGRATION_OFFICES } })).id;
+  const regTypesListId = (
+    await prisma.list.findUniqueOrThrow({ where: { key: LIST_KEYS.RESIDENCE_REGISTRATION_TYPES } })
+  ).id;
+  const residenceExtraFields = [
+    { key: 'registration_type', label: { ar: 'نوع التسجيل على الإقامة', en: 'Registration type' }, type: 'SELECT' as const, listId: regTypesListId, validation: undefined as Prisma.InputJsonValue | undefined },
+    { key: 'duration_months', label: { ar: 'المدة المطلوبة (بالأشهر)', en: 'Requested duration (months)' }, type: 'NUMBER' as const, listId: null, validation: { min: 1, max: 60 } as Prisma.InputJsonValue },
+    { key: 'residence_start_date', label: { ar: 'التاريخ المطلوب لبدء الإقامة', en: 'Requested residence start date' }, type: 'DATE' as const, listId: null, validation: undefined },
+    { key: 'immigration_office', label: { ar: 'فرع إدارة الهجرة', en: 'Immigration office' }, type: 'SELECT' as const, listId: officesListId, validation: undefined },
+    { key: 'submission_datetime', label: { ar: 'التاريخ والساعة المطلوبة لتسليم الأوراق', en: 'Requested submission date & time' }, type: 'DATETIME' as const, listId: null, validation: undefined },
+  ];
+  for (const [i, f] of residenceExtraFields.entries()) {
+    await prisma.serviceExtraField.upsert({
+      where: { serviceId_key: { serviceId: residenceService.id, key: f.key } },
+      update: { label: f.label, type: f.type, listId: f.listId, validation: f.validation, sortOrder: i },
+      create: {
+        serviceId: residenceService.id,
+        key: f.key,
+        label: f.label,
+        type: f.type,
+        listId: f.listId,
+        validation: f.validation,
+        isRequired: true,
+        sortOrder: i,
+      },
+    });
+  }
 
   // ── demo student with a COMPLETE profile (real files on the storage disk) ──
   const uploadsRoot = resolve(process.cwd(), process.env.UPLOAD_DIR ?? './.uploads');
@@ -405,6 +591,50 @@ async function main() {
       },
     });
     console.log(`Demo student seeded with request ${request.referenceNo}`);
+  }
+
+  // ── demo student: residence-related values (idempotent, runs every seed so
+  //    existing dev DBs gain the new fields and stay eligible for the service) ──
+  if (demo) {
+    const residenceDemoValues: Array<[string, string, unknown]> = [
+      // [sectionKey, fieldKey, value]
+      [SECTION_KEYS.PERSONAL_INFO, 'place_of_birth', 'حلب'],
+      [SECTION_KEYS.PERSONAL_INFO, 'country_of_birth', 'SY'],
+      [SECTION_KEYS.PERSONAL_INFO, 'marital_status', 'single'],
+      [SECTION_KEYS.PERSONAL_INFO, 'passport_given_name', 'Ahmad'],
+      [SECTION_KEYS.PERSONAL_INFO, 'passport_surname', 'Alnajjar'],
+      [SECTION_KEYS.PERSONAL_INFO, 'father_name', 'محمود'],
+      [SECTION_KEYS.PERSONAL_INFO, 'mother_name', 'فاطمة'],
+      ['passport_info', 'passport_type', 'ordinary'],
+      ['passport_info', 'passport_issue_date', '2023-05-10'],
+      ['passport_info', 'passport_expiry_date', '2029-05-09'],
+      ['passport_info', 'passport_issuing_country', 'SY'],
+      ['residence_contact', 'turkey_address', 'Fatih, Akşemsettin Mah. No: 12, İstanbul'],
+      ['turkey_university_info', 'university_type', 'state'],
+      ['turkey_university_info', 'enrollment_date', '2025-09-15'],
+      ['turkey_university_info', 'expected_graduation_date', '2029-06-30'],
+      ['turkey_university_info', 'university_name', 'İstanbul Üniversitesi'],
+      ['turkey_university_info', 'university_address', 'Beyazıt, Fatih/İstanbul'],
+      ['turkey_university_info', 'student_number', '0102230045'],
+      ['turkey_university_info', 'faculty', 'كلية الطب'],
+      ['turkey_university_info', 'major', 'الطب البشري'],
+      ['turkey_university_info', 'class_year', 'الأولى'],
+      ['turkey_university_info', 'insurance_available', true],
+      ['turkey_university_info', 'insurance_type', 'تأمين طلابي خاص'],
+    ];
+    for (const [sectionKey, fieldKey, value] of residenceDemoValues) {
+      const section = await prisma.profileSection.findUnique({ where: { key: sectionKey } });
+      if (!section) continue;
+      const field = await prisma.fieldDefinition.findUnique({
+        where: { sectionId_key: { sectionId: section.id, key: fieldKey } },
+      });
+      if (!field) continue;
+      await prisma.profileFieldValue.upsert({
+        where: { userId_fieldId_entryIndex: { userId: demo.id, fieldId: field.id, entryIndex: 0 } },
+        update: {},
+        create: { userId: demo.id, fieldId: field.id, entryIndex: 0, value: value as Prisma.InputJsonValue },
+      });
+    }
   }
 
   // ── default site settings + legal placeholders (only if unset) ──

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/ui/field';
 import { StatusChip } from '@/components/requests/status-chip';
 import { PublicShell } from '@/components/public/public-shell';
+import { DynamicField } from '@/components/profile/dynamic-field';
 
 interface ChoiceRow {
   universityId: string;
@@ -129,6 +130,69 @@ function ChoicePicker({
   );
 }
 
+/**
+ * One-time service questions (e.g. residence appointment details) asked only
+ * at apply time — rendered off the service's own extra-field definitions and
+ * never stored in the reusable profile.
+ */
+function ExtraFieldsApplyForm({
+  service,
+  onSubmit,
+  submitting,
+  error,
+}: {
+  service: ServiceDetail;
+  onSubmit: (extraAnswers: Record<string, unknown>) => void;
+  submitting: boolean;
+  error: string | null;
+}) {
+  const [values, setValues] = useState<Record<string, unknown>>({});
+  const [touchedSubmit, setTouchedSubmit] = useState(false);
+
+  const missingRequired = service.extraFields.filter(
+    (f) => f.isRequired && (values[f.key] === undefined || values[f.key] === null || values[f.key] === ''),
+  );
+
+  return (
+    <div>
+      <h3 className="font-heading text-lg font-semibold text-ink-900">تفاصيل طلبك</h3>
+      <p className="mt-1 text-sm text-ink-500">
+        هذه المعلومات خاصة بهذا الطلب فقط وتُرسل مع بياناتك للمشرف.
+      </p>
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        {service.extraFields.map((f) => (
+          <DynamicField
+            key={f.id}
+            field={{ ...f, helpText: null }}
+            value={values[f.key]}
+            onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
+          />
+        ))}
+      </div>
+      {touchedSubmit && missingRequired.length > 0 && (
+        <p className="mt-4 rounded-xl border border-saffron-300 bg-saffron-50 px-4 py-3 text-sm text-saffron-800">
+          أكمل الحقول المطلوبة: {missingRequired.map((f) => localize(f.label)).join('، ')}
+        </p>
+      )}
+      {error && (
+        <p className="mt-4 rounded-xl border border-error-300 bg-error-50 px-4 py-3 text-sm text-error-700">
+          {error}
+        </p>
+      )}
+      <Button
+        className="mt-6 w-full sm:w-auto"
+        loading={submitting}
+        onClick={() => {
+          setTouchedSubmit(true);
+          if (missingRequired.length === 0) onSubmit(values);
+        }}
+      >
+        قدّم الآن
+      </Button>
+    </div>
+  );
+}
+
 export default function ServicePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
@@ -163,13 +227,13 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
     );
   }
 
-  const onSubmit = async (choices: ChoiceRow[]) => {
+  const onSubmit = async (choices: ChoiceRow[], extraAnswers?: Record<string, unknown>) => {
     setApplyError(null);
     try {
-      const created = await apply.mutateAsync({ serviceSlug: slug, choices });
+      const created = await apply.mutateAsync({ serviceSlug: slug, choices, extraAnswers });
       router.push(`/requests/${created.id}`);
     } catch {
-      setApplyError('تعذّر تقديم الطلب — تحقق من اكتمال ملفك ثم أعد المحاولة.');
+      setApplyError('تعذّر تقديم الطلب — تحقق من اكتمال البيانات ثم أعد المحاولة.');
     }
   };
 
@@ -320,6 +384,13 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
           <ChoicePicker
             service={service}
             onSubmit={(c) => void onSubmit(c)}
+            submitting={apply.isPending}
+            error={applyError}
+          />
+        ) : service.extraFields.length > 0 ? (
+          <ExtraFieldsApplyForm
+            service={service}
+            onSubmit={(extras) => void onSubmit([], extras)}
             submitting={apply.isPending}
             error={applyError}
           />

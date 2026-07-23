@@ -34,6 +34,14 @@ export class CatalogService {
             },
           },
         },
+        extraFields: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            list: {
+              include: { items: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
+            },
+          },
+        },
       },
     });
     if (!service || !service.isPublished) throw new NotFoundException('SERVICE_NOT_FOUND');
@@ -60,6 +68,15 @@ export class CatalogService {
         label: r.field.label,
         sectionKey: r.field.section.key,
         sectionTitle: r.field.section.title,
+      })),
+      extraFields: service.extraFields.map((f) => ({
+        id: f.id,
+        key: f.key,
+        label: f.label,
+        type: f.type,
+        isRequired: f.isRequired,
+        validation: f.validation,
+        options: f.list?.items.map((i) => ({ value: i.value, label: i.label })) ?? null,
       })),
       universities,
       majors,
