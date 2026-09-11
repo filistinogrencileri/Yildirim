@@ -1,7 +1,8 @@
 # Production stack for a single VPS. UNTESTED on the dev machine (no Docker) —
 # validate during first VPS deploy.
 # Required env (e.g. in a .env next to this file):
-#   DOMAIN, POSTGRES_PASSWORD, CORS_ORIGIN (https://$DOMAIN)
+#   DOMAIN, POSTGRES_PASSWORD, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET
+# CORS_ORIGIN is derived from DOMAIN below.
 services:
   caddy:
     image: caddy:2-alpine
@@ -39,6 +40,14 @@ services:
       PORT: "4000"
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/yildirim?schema=public
       CORS_ORIGIN: https://${DOMAIN}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL_SEC: ${JWT_ACCESS_TTL_SEC:-900}
+      REFRESH_TTL_DAYS: ${REFRESH_TTL_DAYS:-30}
+      COOKIE_SECURE: "true"
+      UPLOAD_DIR: /app/.uploads
+    volumes:
+      - api_uploads:/app/.uploads
     expose:
       - "4000"
     depends_on:
@@ -63,3 +72,4 @@ volumes:
   caddy_data:
   caddy_config:
   pgdata:
+  api_uploads:
