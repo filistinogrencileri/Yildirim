@@ -46,6 +46,8 @@ services:
       REFRESH_TTL_DAYS: ${REFRESH_TTL_DAYS:-30}
       COOKIE_SECURE: "true"
       UPLOAD_DIR: /app/.uploads
+      ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL:-}
+      ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
     volumes:
       - api_uploads:/app/.uploads
     expose:
